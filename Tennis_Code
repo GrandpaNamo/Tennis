@@ -1,0 +1,233 @@
+import numpy as np 
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+from sklearn import datasets 
+import csv 
+import seaborn as sns
+import matplotlib.pyplot as plt 
+import pandas as pd 
+import ahpy 
+from sklearn.preprocessing import OneHotEncoder 
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import mean_squared_error 
+from sklearn.cluster import KMeans 
+from catboost import CatBoostClassifier
+from catboost import CatBoostRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import ipywidgets
+from scipy import stats 
+import xgboost as xgb
+%matplotlib inline
+
+# Data Analysis
+df = pd.read_csv("C:\\Users\\Uncle Namo\\Desktop\\Python\\tennis_ace_starting\\tennis_ace_starting\\tennis_stats.csv")
+df.head
+df
+
+### Descriptive Analysis 
+df.mean()
+df.median()
+df.mode()
+df.std()
+
+### Exploratory Data Analysis 
+df.describe()
+from ydata_profiling import ProfileReport 
+ProfileReport(df)
+
+####  Correlation Heat Map
+correlation_matrix = df.corr()
+correlation_matrix
+fig, ax = plt.subplots(figsize=(15,15))
+sns.heatmap(correlation_matrix.iloc[:], annot=True, linewidths=1, ax=ax)
+
+
+# Modify the font size of the tick labels
+ax.tick_params(axis='both', labelsize=9)
+
+# Modify the font size of the x-axis and y-axis labels
+ax.set_xlabel('Factors', fontsize=14)
+ax.set_ylabel('Y-axis', fontsize=14)
+
+# Modify the font size of the colorbar label
+cbar = ax.collections[0].colorbar
+cbar.ax.tick_params(labelsize=10)
+
+# Add other plot customization if needed
+ax.set_title('Heatmap', fontsize=12)
+
+plt.show()
+# PreProcessing
+selected_columns = ['Year'
+,'FirstServePointsWon'
+,'SecondServePointsWon'
+,'BreakPointsFaced'
+,'BreakPointsOpportunities'
+,'BreakPointsSaved'
+,'ServiceGamesPlayed'	
+,'ServiceGamesWon'
+,'TotalPointsWon'	
+,'TotalServicePointsWon'
+,'DoubleFaults'
+,'ReturnGamesPlayed'
+,'Wins'	
+,'Losses'	
+,'Winnings'
+,'ReturnGamesWon'
+,'ReturnPointsWon'
+,'Ranking','Aces']
+df
+df.dropna()
+### Z-Score All
+df_new = df[selected_columns]
+# Calculate the Z-scores for each column in the DataFrame
+z_scores = np.abs(stats.zscore(df_new))
+
+# Set a threshold and filter outliers
+threshold = 3
+filtered_df = df[(z_scores < threshold).all(axis=1)]
+# Display the results
+print("Original DataFrame:")
+print(df_new)
+
+print("\nFiltered DataFrame:")
+print(filtered_df)
+### Z-Score of Aces
+### Interquartile Range DPW
+Q1 = df.Aces.quantile(0.30)
+Q3 = df.Aces.quantile(0.70)
+IQR = Q3 - Q1
+Q3
+Q1
+lower_limit = Q1- 1.5 *IQR
+upper_limit = Q3 + 1.5 * IQR
+lower_limit, upper_limit
+outliers = df[(df.Aces<lower_limit) | (df.Aces>upper_limit)]
+df_no_outliers = df[(df.Aces>lower_limit) & (df.Aces<upper_limit)]
+outliers
+outliers.Aces.max()
+result_df = df[df['Aces'] == 1185]
+result_df
+result_df.count()
+outliers.Aces.min()
+df_no_outliers
+# Catboost Multiple Regression Model 
+selected_columns_boost = ['Year'
+,'FirstServePointsWon'
+,'SecondServePointsWon'
+,'BreakPointsFaced'
+,'BreakPointsOpportunities'
+,'BreakPointsSaved'
+,'ServiceGamesPlayed'	
+,'ServiceGamesWon'
+,'TotalPointsWon'	
+,'TotalServicePointsWon'
+,'DoubleFaults'
+,'ReturnGamesPlayed'
+,'Wins'	
+,'Losses'	
+,'Winnings'
+,'ReturnGamesWon'
+,'ReturnPointsWon'
+,'Ranking'
+]
+X = filtered_df[selected_columns_boost]
+y = filtered_df['Aces']
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = CatBoostRegressor(iterations=10000,  # Number of boosting iterations (trees)
+                             learning_rate=0.1,  # Step size for gradient descent
+                             depth=6,  # Depth of the trees
+                             loss_function='RMSE',  # Loss function for regression tasks
+                             random_seed=42,  # Random seed for reproducibility
+                             logging_level='Silent')  # Set 'Verbose' to see training progress
+
+model.fit(X_train,y_train)
+y_pred = model.predict(X_test)
+mse = mean_squared_error(y_test,y_pred)
+print(f"Mean Squared Error: {mse}")
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_test, y_pred)
+
+print(f"MSE: {mse:.2f}")
+print(f"RMSE: {rmse:.2f}")
+print(f"R-squared: {r2:.2f}")
+plt.figure(figsize =(15,10))
+plt.scatter(y_test,y_pred, alpha = 0.5)
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title("Actual vs. Predicted")
+
+plt.show()
+selected_columns_boost = ['FirstServePointsWon'
+,'SecondServePointsWon'
+,'BreakPointsFaced'
+,'BreakPointsOpportunities'
+,'BreakPointsSaved'
+,'ServiceGamesPlayed'	
+,'ServiceGamesWon'
+,'TotalPointsWon'
+,'DoubleFaults'
+,'ReturnGamesPlayed'
+,'TotalServicePointsWon'	
+,'Wins'	
+,'Losses'	
+,'Winnings'	
+,'Ranking']
+X = df_no_outliers[selected_columns_boost]
+y = df_no_outliers['Aces']
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = CatBoostRegressor(iterations=10000,  # Number of boosting iterations (trees)
+                             learning_rate=0.1,  # Step size for gradient descent
+                             depth=6,  # Depth of the trees
+                             loss_function='RMSE',  # Loss function for regression tasks
+                             random_seed=42,  # Random seed for reproducibility
+                             logging_level='Silent')  # Set 'Verbose' to see training progress
+
+model.fit(X_train,y_train)
+y_pred = model.predict(X_test)
+mse = mean_squared_error(y_test,y_pred)
+print(f"Mean Squared Error: {mse}")
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_test, y_pred)
+
+print(f"MSE: {mse:.2f}")
+print(f"RMSE: {rmse:.2f}")
+print(f"R-squared: {r2:.2f}")
+plt.figure(figsize =(15,10))
+plt.scatter(y_test,y_pred, alpha = 0.5, color = 'red')
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title("Actual vs. Predicted")
+
+plt.show()
+# XGB Regression Model 
+X = filtered_df[selected_columns_boost]
+y = filtered_df['Aces']
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+xgb_model = xgb.XGBRegressor(
+    learning_rate=0.1,
+    n_estimators=1000,
+    max_depth=4,
+    random_state=42,
+    obj = "reg:squared_error"
+)
+xgb_model.fit(X_train,y_train)
+y_pred = xgb_model.predict(X_test)
+mse = mean_squared_error(y_test,y_pred)
+print(f"Mean Squared Error: {mse}")
+plt.figure(figsize =(15,10))
+plt.scatter(y_test,y_pred, alpha = 0.5)
+plt.xlabel('Actual')
+plt.ylabel('Predicted')
+plt.title("Actual vs. Predicted")
+
+plt.show()
